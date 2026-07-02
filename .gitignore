@@ -1,0 +1,5 @@
+sample_photos/
+output/
+image_seg_dataset/
+.agyignore
+.venv/
