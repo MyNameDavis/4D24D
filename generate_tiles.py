@@ -21,6 +21,11 @@ def generate_backlight_scene(img, canvas_margin=500, backlight_val=240):
     # Create canvas filled with the backlight color
     canvas = np.full((canvas_h, canvas_w, 3), backlight_val, dtype=np.uint8)
     
+    # Apply a very subtle, high-resolution unique noise pattern to the backlight itself
+    # This ensures each film scan has a uniquely textured background, preventing false cross-matches
+    noise = np.random.normal(0, 1.5, canvas.shape).astype(np.float32)
+    canvas = np.clip(canvas.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+    
     # Place film in center
     canvas[canvas_margin:canvas_margin+h, canvas_margin:canvas_margin+w] = img
     return canvas
@@ -37,83 +42,88 @@ def save_calibration_reference(tile_w, tile_h, output_dir, backlight_val=240):
     mask = generate_flat_field(tile_w, tile_h)
     calibration_img = calibration_img * mask
     
-    # 3. Add base sensor noise (optional, but realistic)
-    noise = np.random.normal(0, 1.0, calibration_img.shape)
-    calibration_img = np.clip(calibration_img + noise, 0, 255).astype(np.uint8)
-    
-    # 4. Save
+    # 3. Save directly (Real calibration frames average many shots to eliminate photon noise)
     out_path = os.path.join(output_dir, "flat_field_calibration.jpg")
     cv2.imwrite(out_path, calibration_img, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
     print(f"Calibration reference saved to: {out_path}")
 
-def process_dslr_scans(img_path, output_dir, rows=3, cols=3, overlap=0.4, max_rot=2.0):
-    """
-    Simulates a DSLR camera moving over a piece of film.
-    """
-    if not os.path.exists(output_dir): os.makedirs(output_dir)
+import glob
+import shutil
 
-    img = cv2.imread(img_path)
-    # Create the backlight environment
-    scene = generate_backlight_scene(img, canvas_margin=1000)
+def process_all_photos(input_dir, output_dir):
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
     
-    # Calculate crop dimensions to achieve desired overlap
-    # We want rows and cols to cover the actual image region plus some extra
-    scene_h, scene_w = scene.shape[:2]
+    all_tiles = []
     
-    # Calculate tile size based on the scene resolution and grid requests
-    # To guarantee coverage:
-    tile_h = int(scene_h / (rows - (rows - 1) * overlap))
-    tile_w = int(scene_w / (cols - (cols - 1) * overlap))
+    photo_files = sorted(glob.glob(os.path.join(input_dir, "*.jpg")))
+    
+    # Save a single calibration reference for the dataset
+    save_calibration_reference(1000, 1000, output_dir)
+    
+    for photo_path in photo_files:
+        img = cv2.imread(photo_path)
+        scene = generate_backlight_scene(img, canvas_margin=1000)
+        scene_h, scene_w = scene.shape[:2]
+        
+        # Randomize grid for this photo
+        rows = random.randint(2, 4)
+        cols = random.randint(2, 4)
+        overlap = random.uniform(0.4, 0.7)
+        max_rot = random.uniform(1.0, 3.0)
+        
+        tile_h = int(scene_h / (rows - (rows - 1) * overlap))
+        tile_w = int(scene_w / (cols - (cols - 1) * overlap))
+        
+        flat_field = generate_flat_field(tile_w, tile_h)
+        
+        step_y = int(tile_h * (1 - overlap))
+        step_x = int(tile_w * (1 - overlap))
+        
+        print(f"Processing {os.path.basename(photo_path)} -> Grid: {rows}x{cols}")
+        
+        for r in range(rows):
+            for c in range(cols):
+                y_start = r * step_y
+                x_start = c * step_x
+                roi = scene[y_start:y_start+tile_h, x_start:x_start+tile_w]
+                
+                angle = random.uniform(-max_rot, max_rot)
+                M = cv2.getRotationMatrix2D((tile_w/2, tile_h/2), angle, 1.0)
+                frame = cv2.warpAffine(roi, M, (tile_w, tile_h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(240,240,240))
+                
+                frame = frame.astype(np.float32) * random.uniform(0.85, 1.15)
+                frame = frame * flat_field
+                
+                # Add subtle sensor photon noise
+                photon_noise = np.random.normal(0, 1.5, frame.shape)
+                frame = frame + photon_noise
+                
+                frame = np.clip(frame, 0, 255).astype(np.uint8)
+                
+                all_tiles.append(frame)
+                
+        # Add a black frame divider
+        black_frame = np.zeros((1000, 1000, 3), dtype=np.uint8)
+        all_tiles.append(black_frame)
 
-    save_calibration_reference(tile_w, tile_h, output_dir)
-    
-    flat_field = generate_flat_field(tile_w, tile_h)
-    
-    # Calculate steps
-    step_y = int(tile_h * (1 - overlap))
-    step_x = int(tile_w * (1 - overlap))
-    
-    print(f"Scanning grid: {rows}x{cols} ({rows*cols} captures)")
-    
-    count = 0
-    for r in range(rows):
-        for c in range(cols):
-            # Calculate top-left of the camera frame
-            y_start = r * step_y
-            x_start = c * step_x
-            
-            roi = scene[y_start:y_start+tile_h, x_start:x_start+tile_w]
-            
-            # --- Apply Camera Transformation ---
-            angle = random.uniform(-max_rot, max_rot)
-            # Use warpAffine to rotate around center of the camera sensor
-            M = cv2.getRotationMatrix2D((tile_w/2, tile_h/2), angle, 1.0)
-            frame = cv2.warpAffine(roi, M, (tile_w, tile_h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(240,240,240))
-            
-            # --- Apply Lens Flaws (Applied to whole frame) ---
-            # 1. Exposure Flicker
-            frame = frame.astype(np.float32) * random.uniform(0.85, 1.15)
-            
-            # 2. Vignetting (Applies to backlight AND film)
-            frame = frame * flat_field
-            
-            # 3. Sensor Noise
-            frame = frame + np.random.normal(0, 2.0, frame.shape)
-            
-            # Finalize
-            frame = np.clip(frame, 0, 255).astype(np.uint8)
-            
-            cv2.imwrite(os.path.join(output_dir, f"scan_{count:03d}.jpg"), frame)
-            count += 1
-            
-    print(f"Generated {count} scans in {output_dir}")
-
+    # Outlier shuffling temporarily disabled for speed testing
+    # num_outliers = max(1, int(len(all_tiles) * 0.05))
+    # outlier_indices = sorted(random.sample(range(len(all_tiles)), num_outliers), reverse=True)
+    # outliers = []
+    # for idx in outlier_indices:
+    #     outliers.append(all_tiles.pop(idx))
+    # random.shuffle(outliers)
+    # for outlier in outliers:
+    #     insert_idx = random.randint(0, len(all_tiles))
+    #     all_tiles.insert(insert_idx, outlier)
+        
+    # Save sequentially with anonymous names
+    for i, frame in enumerate(all_tiles):
+        cv2.imwrite(os.path.join(output_dir, f"img_{i:03d}.jpg"), frame)
+        
+    print(f"\nSaved {len(all_tiles)} total anonymized tiles to {output_dir}")
 
 if __name__ == "__main__":
-    process_dslr_scans(
-        "./sample_photos/pexels-nam-quan-nguy-n-459228913-15839630.jpg", 
-        "./image_seg_dataset", 
-        rows=4, 
-        cols=4, 
-        overlap=0.4
-    )
+    process_all_photos("./sample_photos", "./image_seg_dataset")
