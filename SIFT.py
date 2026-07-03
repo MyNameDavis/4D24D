@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import collections
 from tqdm import tqdm
+from scipy.optimize import minimize
 
 def load_clean_image(path, flat_field_img=None):
     img = cv2.imread(path)
@@ -120,55 +121,127 @@ def compute_matches(features_dict, pairs, min_inliers=40, pbar=None):
                     })
     return valid_connections
 
-def orient_and_crop(image, mapped_inliers):
+def calculate_1d_entropy(slice_1d):
+    """
+    Calculates the Shannon Entropy of a 1D pixel slice.
+    Expects slice_1d to be an array of BGR or grayscale pixels.
+    """
+    if len(slice_1d.shape) == 3 and slice_1d.shape[2] == 3:
+        # Convert BGR slice to grayscale using mean to avoid cv2.cvtColor shape issues
+        gray_slice = np.mean(slice_1d, axis=2).astype(np.uint8)
+    else:
+        gray_slice = slice_1d.astype(np.uint8)
+        
+    # Calculate histogram
+    hist = cv2.calcHist([gray_slice], [0], None, [256], [0, 256])
+    
+    # Normalize histogram to get probabilities
+    hist = hist.ravel() / hist.sum()
+    
+    # Filter out zero probabilities to avoid log2(0)
+    p = hist[hist > 0]
+    
+    # Calculate Shannon Entropy
+    entropy = -np.sum(p * np.log2(p))
+    return entropy
+
+def fine_tune_bounds_with_entropy(image, rx_min, rx_max, ry_min, ry_max, threshold=7, max_steps=5):
+    print(f" -> Fine-tuning boundaries via Shannon Entropy (threshold={threshold})...")
+    H, W = image.shape[:2]
+    
+    # Helper to safely slice and calculate entropy
+    def get_h_entropy(y, x_min, x_max):
+        if y < 0 or y >= H or x_min >= x_max: return 0.0
+        slice_1d = image[y:y+1, x_min:x_max]
+        return calculate_1d_entropy(slice_1d)
+        
+    def get_v_entropy(x, y_min, y_max):
+        if x < 0 or x >= W or y_min >= y_max: return 0.0
+        slice_1d = image[y_min:y_max, x:x+1]
+        return calculate_1d_entropy(slice_1d)
+
+    # 1. Top Face (ry_min)
+    steps = 0
+    while steps < max_steps:
+        ent = get_h_entropy(ry_min, rx_min, rx_max)
+        if ent < threshold:
+            ry_min += 1 # Shrink
+        else:
+            # High entropy, try a grow
+            ent_grow = get_h_entropy(ry_min - 1, rx_min, rx_max)
+            if ent_grow >= threshold and ry_min > 0:
+                ry_min -= 1 # Grow
+            else:
+                break # Grow is low entropy, we are done
+        steps += 1
+
+    # 2. Bottom Face (ry_max)
+    steps = 0
+    while steps < max_steps:
+        ent = get_h_entropy(ry_max - 1, rx_min, rx_max)
+        if ent < threshold:
+            ry_max -= 1 # Shrink
+        else:
+            ent_grow = get_h_entropy(ry_max, rx_min, rx_max)
+            if ent_grow >= threshold and ry_max < H:
+                ry_max += 1 # Grow
+            else:
+                break
+        steps += 1
+
+    # 3. Left Face (rx_min)
+    steps = 0
+    while steps < max_steps:
+        ent = get_v_entropy(rx_min, ry_min, ry_max)
+        if ent < threshold:
+            rx_min += 1 # Shrink
+        else:
+            ent_grow = get_v_entropy(rx_min - 1, ry_min, ry_max)
+            if ent_grow >= threshold and rx_min > 0:
+                rx_min -= 1 # Grow
+            else:
+                break
+        steps += 1
+
+    # 4. Right Face (rx_max)
+    steps = 0
+    while steps < max_steps:
+        ent = get_v_entropy(rx_max - 1, ry_min, ry_max)
+        if ent < threshold:
+            rx_max -= 1 # Shrink
+        else:
+            ent_grow = get_v_entropy(rx_max, ry_min, ry_max)
+            if ent_grow >= threshold and rx_max < W:
+                rx_max += 1 # Grow
+            else:
+                break
+        steps += 1
+
+    return rx_min, rx_max, ry_min, ry_max
+
+def orient_and_crop(image, mapped_features):
     print("\nOrienting and cropping the final composite...")
 
-    if mapped_inliers is None or len(mapped_inliers) == 0:
-        print(" -> Warning: No mapped inliers found. Returning uncropped image.")
+    if mapped_features is None or len(mapped_features) == 0:
+        print(" -> Warning: No mapped features found. Returning uncropped image.")
         return image
 
     H, W = image.shape[:2]
     
-    inlier_pts = np.array(mapped_inliers)
-    ix_min, iy_min = np.percentile(inlier_pts, 5, axis=0).ravel()
-    ix_max, iy_max = np.percentile(inlier_pts, 95, axis=0).ravel()
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blur, 50, 150)
+    print(" -> Finding extreme boundary points...")
+    extreme_pts = find_extreme_points(mapped_features, iterations=5)
     
-    kernel = np.ones((5, 5), np.uint8)
-    dilated = cv2.dilate(edges, kernel, iterations=2)
+    print(" -> Fitting optimized rectangle via least squares...")
+    rect = fit_rectangle_least_squares(extreme_pts, W / 2.0, H / 2.0)
     
-    contours, _ = cv2.findContours(dilated, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if not contours:
-        print(" -> Warning: No contours found. Returning uncropped image.")
-        return image
-
-    valid_contours = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        
-        if (x <= ix_min + 50) and (x + w >= ix_max - 50) and \
-           (y <= iy_min + 50) and (y + h >= iy_max - 50):
-            valid_contours.append(cnt)
-            
-    if not valid_contours:
-        print(" -> Warning: No contours enclosed the SIFT inliers. Returning uncropped image.")
+    if rect is None:
+        print(" -> Warning: Least squares fit failed. Returning uncropped image.")
         return image
         
-    def bbox_area(cnt):
-        _, _, w, h = cv2.boundingRect(cnt)
-        return w * h
-        
-    best_cnt = min(valid_contours, key=bbox_area)
+    print(" -> Refining bounding box via Canny + Hough lines...")
+    final_rect = refine_box_with_hough(image, rect, expansion_factor=1.2)
     
-    rect = cv2.minAreaRect(best_cnt)
-    (cx, cy), (w, h), angle = rect
-    
-    w -= 8
-    h -= 8
+    (cx, cy), (w, h), angle = final_rect
     
     if w < h:
         angle += 90
@@ -183,6 +256,10 @@ def orient_and_crop(image, mapped_inliers):
     ry_min = max(0, int(cy - h / 2))
     rx_max = min(W, int(cx + w / 2))
     ry_max = min(H, int(cy + h / 2))
+
+    rx_min, rx_max, ry_min, ry_max = fine_tune_bounds_with_entropy(
+        rotated_img, rx_min, rx_max, ry_min, ry_max, threshold=7, max_steps=5
+    )
 
     cropped = rotated_img[ry_min:ry_max, rx_min:rx_max]
     print(f" -> Found exact rectilinear bounds: {rx_max-rx_min}x{ry_max-ry_min}")
@@ -303,31 +380,206 @@ def blend_images_onto_canvas(global_transforms, global_gains, features_dict, fla
     canvas_count[canvas_count == 0] = 1.0 
     return (canvas_sum / canvas_count).astype(np.uint8)
 
-def map_sift_inliers(connections, global_transforms, features_dict, T_shift):
-    print("Mapping SIFT inliers to canvas space...")
-    all_mapped_inliers = []
-    for conn in connections:
-        img1 = conn['img1']
-        if img1 not in global_transforms: continue
+def map_all_sift_features(global_transforms, features_dict, T_shift):
+    """
+    Transforms all SIFT keypoints from individual image spaces into the final canvas space
+    and filters out the 5% weakest outliers based on response (assuming normal distribution).
+    """
+    print("Mapping all SIFT features to canvas space...")
+    all_mapped_pts = []
+    all_responses = []
+    
+    for img_name, G in global_transforms.items():
+        if img_name not in features_dict:
+            continue
+            
+        keypoints = features_dict[img_name]['keypoints']
+        if not keypoints:
+            continue
+            
+        # Reshape for perspectiveTransform: (N, 1, 2)
+        pts = np.float32([kp.pt for kp in keypoints]).reshape(-1, 1, 2)
+        responses = [kp.response for kp in keypoints]
         
-        kp1 = features_dict[img1]['keypoints']
-        matches = conn['matches']
-        mask = conn['mask']
+        F = T_shift @ G
+        mapped = cv2.perspectiveTransform(pts, F)
         
-        pts = []
-        for i, m in enumerate(matches):
-            if mask[i]:
-                pts.append(kp1[m.queryIdx].pt)
-                
-        if pts:
-            pts = np.float32(pts).reshape(-1, 1, 2)
-            F = T_shift @ global_transforms[img1]
-            mapped = cv2.perspectiveTransform(pts, F)
-            all_mapped_inliers.append(mapped)
+        all_mapped_pts.extend(mapped)
+        all_responses.extend(responses)
 
-    if all_mapped_inliers:
-        return np.concatenate(all_mapped_inliers, axis=0)
-    return None
+    if not all_mapped_pts:
+        return None
+
+    all_mapped_pts = np.array(all_mapped_pts)
+    all_responses = np.array(all_responses)
+    
+    # Filter out 5% weakest outliers assuming normal distribution (z < -1.645)
+    mean_resp = np.mean(all_responses)
+    std_resp = np.std(all_responses)
+    threshold = mean_resp - 1.645 * std_resp
+    
+    valid_mask = all_responses >= threshold
+    filtered_pts = all_mapped_pts[valid_mask]
+    
+    print(f" -> Filtered out {len(all_responses) - len(filtered_pts)} weak outliers (threshold: {threshold:.2f})")
+    
+    return filtered_pts
+
+def find_extreme_points(pts, iterations=10):
+    """
+    Iteratively finds the centroid of the cluster, then finds the farthest points 
+    in the +/- X and Y directions, removes them, and repeats.
+    Returns the accumulated extreme boundary points.
+    """
+    if pts is None or len(pts) == 0:
+        return []
+        
+    pts_2d = pts.reshape(-1, 2)
+    remaining_pts = pts_2d.copy()
+    extreme_points = []
+    
+    for _ in range(iterations):
+        if len(remaining_pts) < 4:
+            break
+            
+        # Find centroid
+        centroid = np.mean(remaining_pts, axis=0)
+        
+        # Calculate distances along axes
+        x_dist = remaining_pts[:, 0] - centroid[0]
+        y_dist = remaining_pts[:, 1] - centroid[1]
+        
+        # Find indices of furthest points
+        idx_max_x = np.argmax(x_dist)
+        idx_min_x = np.argmin(x_dist)
+        idx_max_y = np.argmax(y_dist)
+        idx_min_y = np.argmin(y_dist)
+        
+        # Collect unique extreme points for this iteration
+        iter_extremes = set([idx_max_x, idx_min_x, idx_max_y, idx_min_y])
+        
+        for idx in iter_extremes:
+            extreme_points.append(remaining_pts[idx])
+            
+        # Remove these points from remaining set
+        mask = np.ones(len(remaining_pts), dtype=bool)
+        for idx in iter_extremes:
+            mask[idx] = False
+        remaining_pts = remaining_pts[mask]
+        
+    return np.array(extreme_points).reshape(-1, 1, 2)
+
+def fit_rectangle_least_squares(pts, cx, cy, interior_weight=0.1):
+    """
+    Fits a rectangle to a set of extreme points using a non-linear least squares solver,
+    fixing the center of the rectangle to (cx, cy).
+    Uses an asymmetric loss function to de-weight points that fall inside the box.
+    """
+    if pts is None or len(pts) < 4:
+        return None
+        
+    pts_2d = pts.reshape(-1, 2)
+    
+    # Get a reasonable initial guess for w, h, and theta using minAreaRect
+    init_rect = cv2.minAreaRect(np.ascontiguousarray(pts_2d, dtype=np.float32))
+    init_w, init_h = init_rect[1]
+    init_theta = init_rect[2] * np.pi / 180.0
+    
+    def loss_func(params):
+        w, h, theta = params
+        
+        # Translate points to origin (fixed center)
+        x = pts_2d[:, 0] - cx
+        y = pts_2d[:, 1] - cy
+        
+        # Rotate points by -theta to axis-align them
+        cos_t = np.cos(-theta)
+        sin_t = np.sin(-theta)
+        
+        x_rot = x * cos_t - y * sin_t
+        y_rot = x * sin_t + y * cos_t
+        
+        # Calculate signed distance to the edges
+        # Positive means outside the box, negative means inside
+        dx_signed = np.abs(x_rot) - w / 2.0
+        dy_signed = np.abs(y_rot) - h / 2.0
+        
+        # Signed Distance Function (SDF) approximation
+        sdf = np.maximum(dx_signed, dy_signed)
+        
+        # Asymmetric weighting: 
+        # Strong penalty (1.0) for points outside the box (sdf > 0)
+        # Weak penalty (interior_weight) for points inside the box (sdf <= 0)
+        weights = np.where(sdf > 0, 1.0, interior_weight)
+        
+        # Return weighted sum of squared distances
+        return np.sum(weights * (sdf ** 2))
+        
+    initial_guess = [init_w, init_h, init_theta]
+    bounds = ((1.0, None), (1.0, None), (None, None)) # Width and height must be positive
+    
+    result = minimize(loss_func, initial_guess, bounds=bounds, method='L-BFGS-B')
+    
+    if result.success:
+        opt_w, opt_h, opt_theta = result.x
+        opt_theta_deg = opt_theta * 180.0 / np.pi
+        return ((cx, cy), (opt_w, opt_h), opt_theta_deg)
+    else:
+        print(" -> Optimization failed, falling back to initial guess.")
+        return ((cx, cy), (init_w, init_h), init_rect[2])
+
+def refine_box_with_hough(canvas, rough_rect, expansion_factor=1.2):
+    """
+    Expands the rough bounding box, creates a mask, and uses Canny + Hough
+    to find the true physical edges of the image.
+    """
+    ((cx, cy), (w, h), angle) = rough_rect
+    exp_w = w * expansion_factor
+    exp_h = h * expansion_factor
+    exp_rect = ((cx, cy), (exp_w, exp_h), angle)
+    
+    gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+    
+    # Apply Contrast Limited Adaptive Histogram Equalization (CLAHE)
+    # This massively boosts local contrast, making faint edges (like a bright sky against a bright background)
+    # pop out for the edge detector to see.
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray_clahe = clahe.apply(gray)
+    
+    blur = cv2.GaussianBlur(gray_clahe, (5, 5), 0)
+    
+    # Automatic Canny edge detection based on median
+    v = np.median(blur)
+    sigma = 0.33
+    lower = int(max(0, (1.0 - sigma) * v))
+    upper = int(min(255, (1.0 + sigma) * v))
+    edged = cv2.Canny(blur, lower, upper)
+    
+    # Create mask for the expanded rectangle
+    mask = np.zeros(gray.shape, dtype=np.uint8)
+    box = cv2.boxPoints(exp_rect)
+    box = np.int32(box)
+    cv2.drawContours(mask, [box], 0, 255, -1)
+    
+    # Apply mask
+    masked_edges = cv2.bitwise_and(edged, edged, mask=mask)
+    
+    # Hough Lines
+    lines = cv2.HoughLinesP(masked_edges, 1, np.pi / 180, threshold=50, minLineLength=50, maxLineGap=20)
+    
+    if lines is not None and len(lines) > 0:
+        endpoints = []
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            endpoints.append((x1, y1))
+            endpoints.append((x2, y2))
+            
+        endpoints = np.float32(endpoints)
+        final_rect = cv2.minAreaRect(endpoints)
+        return final_rect
+    else:
+        print(" -> Warning: Hough transform found no lines, falling back to expanded rough box.")
+        return exp_rect
 
 def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_img=None):
     if not connections:
@@ -342,8 +594,8 @@ def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_
     global_gains = compute_exposure_gains(connections, features_dict, global_transforms, anchor, flat_field_img)
     canvas_w, canvas_h, T_shift = compute_canvas_bounds(global_transforms, features_dict)
     final_canvas = blend_images_onto_canvas(global_transforms, global_gains, features_dict, flat_field_img, canvas_w, canvas_h, T_shift)
-    mapped_inliers = map_sift_inliers(connections, global_transforms, features_dict, T_shift)
-    cropped_canvas = orient_and_crop(final_canvas, mapped_inliers)
+    mapped_features = map_all_sift_features(global_transforms, features_dict, T_shift)
+    cropped_canvas = orient_and_crop(final_canvas, mapped_features)
 
     print("\nSaving final outputs...")
     if cropped_canvas is not None and cropped_canvas.size > 0:
