@@ -1,0 +1,16 @@
+{
+  "Square (1:1)": 1.0,
+  "Medium Format (7:6)": 1.166666666667,
+  "Large Format (4:3)": 1.25,
+  "Fullscreen (4:3)": 1.333333333333,
+  "IMAX Film (1.43:1)": 1.43,
+  "Full-frame (3:2)": 1.5,
+  "Widescreen (16:9)": 1.777777777778,
+  "American Widescreen (37:20)": 1.85,
+  "Panoramic (2:1)": 2.0,
+  "Modern Smartphone (13:6)": 2.166666666667,
+  "Consumer Ultrawide (64:27)": 2.370370370370,
+  "Anamorphic Cinema (2.39:1)": 2.39,
+  "XPan Panoramic (65:24)": 2.708333333333,
+  "Panoramic (3:1)": 3.0
+}

@@ -3,6 +3,7 @@ import cv2
 import math
 import random
 import numpy as np
+import json
 
 def generate_flat_field(w, h):
     x = np.linspace(-w/2, w/2, w)
@@ -64,6 +65,7 @@ def process_all_photos(input_dir, output_dir):
     
     for photo_path in photo_files:
         img = cv2.imread(photo_path)
+        h, w = img.shape[:2]
         scene = generate_backlight_scene(img, canvas_margin=1000)
         scene_h, scene_w = scene.shape[:2]
         
@@ -89,9 +91,17 @@ def process_all_photos(input_dir, output_dir):
                 x_start = c * step_x
                 roi = scene[y_start:y_start+tile_h, x_start:x_start+tile_w]
                 
-                angle = random.uniform(-max_rot, max_rot)
-                M = cv2.getRotationMatrix2D((tile_w/2, tile_h/2), angle, 1.0)
-                frame = cv2.warpAffine(roi, M, (tile_w, tile_h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(240,240,240))
+                dx = tile_w * 0.05
+                dy = tile_h * 0.05
+                pts1 = np.float32([[0, 0], [tile_w, 0], [tile_w, tile_h], [0, tile_h]])
+                pts2 = np.float32([
+                    [random.uniform(-dx, dx), random.uniform(-dy, dy)],
+                    [tile_w + random.uniform(-dx, dx), random.uniform(-dy, dy)],
+                    [tile_w + random.uniform(-dx, dx), tile_h + random.uniform(-dy, dy)],
+                    [random.uniform(-dx, dx), tile_h + random.uniform(-dy, dy)]
+                ])
+                M = cv2.getPerspectiveTransform(pts1, pts2)
+                frame = cv2.warpPerspective(roi, M, (tile_w, tile_h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(240,240,240))
                 
                 frame = frame.astype(np.float32) * random.uniform(0.85, 1.15)
                 frame = frame * flat_field
@@ -102,28 +112,38 @@ def process_all_photos(input_dir, output_dir):
                 
                 frame = np.clip(frame, 0, 255).astype(np.uint8)
                 
-                all_tiles.append(frame)
+                all_tiles.append({
+                    "type": "tile",
+                    "frame": frame,
+                    "metadata": {
+                        "original_photo": os.path.basename(photo_path),
+                        "film_w": w,
+                        "film_h": h,
+                        "canvas_margin": 1000,
+                        "scene_to_roi_offset": [x_start, y_start],
+                        "roi_to_frame_M": M.tolist()
+                    }
+                })
                 
         # Add a black frame divider
         black_frame = np.zeros((1000, 1000, 3), dtype=np.uint8)
-        all_tiles.append(black_frame)
+        all_tiles.append({
+            "type": "divider",
+            "frame": black_frame
+        })
 
-    # Outlier shuffling temporarily disabled for speed testing
-    # num_outliers = max(1, int(len(all_tiles) * 0.05))
-    # outlier_indices = sorted(random.sample(range(len(all_tiles)), num_outliers), reverse=True)
-    # outliers = []
-    # for idx in outlier_indices:
-    #     outliers.append(all_tiles.pop(idx))
-    # random.shuffle(outliers)
-    # for outlier in outliers:
-    #     insert_idx = random.randint(0, len(all_tiles))
-    #     all_tiles.insert(insert_idx, outlier)
-        
     # Save sequentially with anonymous names
-    for i, frame in enumerate(all_tiles):
-        cv2.imwrite(os.path.join(output_dir, f"img_{i:03d}.jpg"), frame)
+    ground_truth = {}
+    for i, item in enumerate(all_tiles):
+        filename = f"img_{i:03d}.jpg"
+        cv2.imwrite(os.path.join(output_dir, filename), item["frame"])
+        if item["type"] == "tile":
+            ground_truth[filename] = item["metadata"]
+            
+    with open(os.path.join(output_dir, "ground_truth.json"), "w") as f:
+        json.dump(ground_truth, f, indent=4)
         
     print(f"\nSaved {len(all_tiles)} total anonymized tiles to {output_dir}")
 
 if __name__ == "__main__":
-    process_all_photos("./sample_photos", "./image_seg_dataset")
+    process_all_photos("./sample_photos", "./image_seg_dataset_3d")
