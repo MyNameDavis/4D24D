@@ -89,7 +89,7 @@ def process_single_batch(b_idx, num_batches, batch_paths, flat_field_img, DOWNSC
     local_tracker = 0
     for idx, comp in enumerate(components):
         if len(comp) < 2:
-            print(f"Skipping component {idx} (Only 1 image: {os.path.basename(comp[0])})")
+            print(f"Skipping mosaic {idx} (Only 1 image: {os.path.basename(comp[0])})")
             continue
 
         current_id = shared_tracker.value + local_tracker
