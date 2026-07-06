@@ -12,8 +12,10 @@ from match import cluster_film_scenes, compute_exposure_gains, compute_canvas_bo
 from transform import orient_and_crop, map_all_sift_features
 from aspect_ratio import extract_aspect_ratio_equations
 
+from image_io import read_image
+
 def is_black_frame(path):
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    img = read_image(path, cv2.IMREAD_GRAYSCALE)
     if img is None: 
         return False
     small = cv2.resize(img, (10, 10))
@@ -56,19 +58,22 @@ def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_
         cv2.imwrite(full_crop_path, cropped_canvas)
         print(f" -> High-resolution lossless crop saved to {full_crop_path}")
         
-        try:
-            from aspect_ratio import extract_aspect_ratio_equations
-            print(f" -> Analyzing film grain and SIFT point cloud to extract aspect ratio equations for mosaic {idx}...")
-            c_h, c_w = cropped_canvas.shape[:2]
-            equations = extract_aspect_ratio_equations(features_dict, connections, global_transforms, T_shift, M_persp, idx, c_w, c_h)
-            
-            import json
-            os.makedirs(os.path.join(output_dir, "equations"), exist_ok=True)
-            with open(os.path.join(output_dir, "equations", f"equations_{idx:02d}.json"), "w") as f:
-                json.dump(equations, f, indent=4)
+        if PARAMS.get("TARGET_ASPECT_RATIO") is None:
+            try:
+                from aspect_ratio import extract_aspect_ratio_equations
+                print(f" -> Analyzing film grain and SIFT point cloud to extract aspect ratio equations for mosaic {idx}...")
+                c_h, c_w = cropped_canvas.shape[:2]
+                equations = extract_aspect_ratio_equations(features_dict, connections, global_transforms, T_shift, M_persp, idx, c_w, c_h)
                 
-        except Exception as e:
-            print(f" -> Warning: Equation extraction failed: {e}")
+                import json
+                os.makedirs(os.path.join(output_dir, "equations"), exist_ok=True)
+                with open(os.path.join(output_dir, "equations", f"equations_{idx:02d}.json"), "w") as f:
+                    json.dump(equations, f, indent=4)
+                    
+            except Exception as e:
+                print(f" -> Warning: Equation extraction failed: {e}")
+        else:
+            print(f" -> Manual Aspect Ratio override detected. Skipping point cloud solver for mosaic {idx}.")
             
     else:
         print(" -> Warning: Cropped canvas is empty, skipping output.")

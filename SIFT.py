@@ -2,11 +2,13 @@ import cv2
 import numpy as np
 import json
 import os
+from image_io import read_image
+
 with open("param.json") as _f:
     PARAMS = json.load(_f)
 
 def load_clean_image(path, flat_field_img=None):
-    img = cv2.imread(path)
+    img = read_image(path)
     if img is None:
         return None
         

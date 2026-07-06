@@ -209,12 +209,15 @@ def compute_exposure_gains(connections, features_dict, global_transforms, anchor
                 
     return global_gains
 
+from image_io import read_image
+
 def compute_canvas_bounds(global_transforms, features_dict):
     print("Calculating final canvas dimensions...")
     corners_list = []
     for img_name, G in global_transforms.items():
         img_path = features_dict[img_name]['path']
-        h, w = cv2.imread(img_path).shape[:2]
+        img = read_image(img_path)
+        h, w = img.shape[:2] if img is not None else (0, 0)
         
         corners = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
         transformed_corners = cv2.perspectiveTransform(corners, G)
@@ -237,6 +240,7 @@ def blend_images_onto_canvas(global_transforms, global_gains, features_dict, fla
     canvas_count = np.zeros((canvas_h, canvas_w, 1), dtype=np.float32)
 
 
+    tile_shapes = {}
     for img_name, G in global_transforms.items():
         img = load_clean_image(features_dict[img_name]['path'], flat_field_img)
         
@@ -244,6 +248,7 @@ def blend_images_onto_canvas(global_transforms, global_gains, features_dict, fla
         img = (img.astype(np.float32) * gain).clip(0, 255).astype(np.uint8)
         
         h_img, w_img = img.shape[:2]
+        tile_shapes[img_name] = (h_img, w_img)
         
         F = T_shift @ G
         warped = cv2.warpPerspective(img, F, (canvas_w, canvas_h), flags=cv2.INTER_LINEAR)
@@ -277,13 +282,9 @@ def blend_images_onto_canvas(global_transforms, global_gains, features_dict, fla
     canvas_count[canvas_count == 0] = 1.0 
     
     # Extract the polygons from the debug canvas for the seams visualizer
-    # Actually we can just recompute or return them from a list
     tile_polygons = []
     for img_name, G in global_transforms.items():
-        img_w, img_h = 0, 0
-        if img_name in features_dict:
-            img = load_clean_image(features_dict[img_name]['path'], flat_field_img)
-            img_h, img_w = img.shape[:2]
+        img_h, img_w = tile_shapes.get(img_name, (0, 0))
         corners = np.float32([[0, 0], [img_w, 0], [img_w, img_h], [0, img_h]]).reshape(-1, 1, 2)
         F = T_shift @ G
         transformed_corners = cv2.perspectiveTransform(corners, F)

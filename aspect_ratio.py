@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, least_squares
 import os
 import json
 import json
@@ -125,7 +125,8 @@ def homography_residual(h_params, points, covs_spatial):
 
 def estimate_segment_unwarp(img_path, patch_size=256):
     """Estimates the 3D perspective Homography that unwarps the film grain of a segment."""
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    from image_io import read_image
+    img = read_image(img_path, cv2.IMREAD_GRAYSCALE)
     if img is None: return None
     
     H_img, W_img = img.shape
@@ -175,7 +176,8 @@ def estimate_segment_unwarp(img_path, patch_size=256):
     return H_unwarp
 
 def extract_features(img_path):
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    from image_io import read_image
+    img = read_image(img_path, cv2.IMREAD_GRAYSCALE)
     sift = cv2.SIFT_create(nfeatures=5000)
     kps, des = sift.detectAndCompute(img, None)
     return kps, des, img.shape
