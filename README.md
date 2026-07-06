@@ -83,5 +83,5 @@ give it a hint in the following ways:
    This is something you'll probably want to play around with and find your preferred balance.
 
 ## **Curious how 4D24D works?**
-Check out the technical background primer located at [Go to Docs](/docs/tech_primer.md) for more details on the math
+Check out the [technical background primer] (/docs/tech_primer.md) for more details on the math
 behind this process.
