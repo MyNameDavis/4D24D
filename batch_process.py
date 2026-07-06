@@ -53,7 +53,7 @@ def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_
     if cropped_canvas is not None and cropped_canvas.size > 0:
         full_crop_path = os.path.join(output_dir, f"mosaic_{idx:02d}.tif")
         cv2.imwrite(full_crop_path, cropped_canvas)
-        print(f" -> High-resolution lossless crop saved to {full_crop_path}")
+        print(f" -> Cropped mosaic saved to {full_crop_path}")
         
         if PARAMS.get("TARGET_ASPECT_RATIO") is None:
             try:
