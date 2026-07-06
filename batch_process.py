@@ -9,7 +9,7 @@ with open("param.json") as _f:
     PARAMS = json.load(_f)
 from SIFT import extract_sift_features
 from match import cluster_film_scenes, compute_exposure_gains, compute_canvas_bounds, blend_images_onto_canvas
-from transform import orient_and_crop
+from transform import orient_and_crop, map_all_sift_features
 from aspect_ratio import extract_aspect_ratio_equations
 
 def is_black_frame(path):
@@ -57,49 +57,18 @@ def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_
         print(f" -> High-resolution lossless crop saved to {full_crop_path}")
         
         try:
-            from point_cloud_aspect_ratio import extract_aspect_ratio_equations
+            from aspect_ratio import extract_aspect_ratio_equations
             print(f" -> Analyzing film grain and SIFT point cloud to extract aspect ratio equations for mosaic {idx}...")
             c_h, c_w = cropped_canvas.shape[:2]
             equations = extract_aspect_ratio_equations(features_dict, connections, global_transforms, T_shift, M_persp, idx, c_w, c_h)
             
             import json
-            
-            # The equations MUST be written to disk to pass them out of the multiprocessing pool back to the batch processor
+            os.makedirs(os.path.join(output_dir, "equations"), exist_ok=True)
+            with open(os.path.join(output_dir, "equations", f"equations_{idx:02d}.json"), "w") as f:
+                json.dump(equations, f, indent=4)
                 
-            ENABLE_DEBUG_VISUALIZATIONS = False
-        except ImportError as e:
-            print(f" -> Warning: point_cloud_aspect_ratio module not found ({e}). Skipping equation extraction.")
         except Exception as e:
             print(f" -> Warning: Equation extraction failed: {e}")
-            
-        if M_persp is not None:
-            # Generate the seams visualization
-            seams_vis = cropped_canvas.copy()
-            # Create a transparent overlay for polygons
-            overlay = np.zeros_like(seams_vis)
-            
-            colors = [
-                (255, 0, 0), (0, 255, 0), (0, 0, 255), 
-                (255, 255, 0), (255, 0, 255), (0, 255, 255),
-                (255, 128, 0), (128, 0, 255), (0, 255, 128)
-            ]
-            
-            for i, poly in enumerate(tile_polygons):
-                # Transform the polygon from Master Canvas space to Final Flattened space
-                flat_poly = cv2.perspectiveTransform(poly, M_persp)
-                # Shift by the rx_min, ry_min entropy crop
-                flat_poly[:, 0, 0] -= rx_min
-                flat_poly[:, 0, 1] -= ry_min
-                
-                color = colors[i % len(colors)]
-                cv2.polylines(seams_vis, [np.int32(flat_poly)], True, color, 2)
-                cv2.fillPoly(overlay, [np.int32(flat_poly)], color)
-            
-            # Blend overlay with 20% opacity
-            seams_vis = cv2.addWeighted(seams_vis, 1.0, overlay, 0.2, 0)
-            
-            if ENABLE_DEBUG_VISUALIZATIONS:
-                print(f" -> Uncorrected assembly seam visualization saved to {seams_path}")
             
     else:
         print(" -> Warning: Cropped canvas is empty, skipping output.")
@@ -129,5 +98,4 @@ def process_single_batch(b_idx, num_batches, batch_paths, flat_field_img, DOWNSC
         stitch_mosaic(comp, features_dict, comp_connections, OUTPUT_DIR, current_id, flat_field_img)
         local_tracker += 1
         
-    with shared_tracker.get_lock():
-        shared_tracker.value += local_tracker
+    shared_tracker.value += local_tracker

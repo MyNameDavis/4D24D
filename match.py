@@ -40,16 +40,7 @@ def compute_matches(features_dict, pairs, min_inliers=40, pbar=None):
             M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
             if M is not None:
-                # DEBUG VISUALIZATION: SIFT MATCHES
-                debug_dir = "./output/debug"
-                os.makedirs(debug_dir, exist_ok=True)
-                # img1_path = features_dict[file1]['path']
-                # img2_path = features_dict[file2]['path']
-                # if os.path.exists(img1_path) and os.path.exists(img2_path):
-                #     img1 = cv2.imread(img1_path)
-                #     img2 = cv2.imread(img2_path)
-                #     match_img = cv2.drawMatches(img1, kp1, img2, kp2, good_matches, None, matchesMask=mask.ravel().tolist(), flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-                #     cv2.imwrite(os.path.join(debug_dir, f"match_{os.path.basename(file1)}_{os.path.basename(file2)}.jpg"), match_img)
+
 
                 inlier_count = np.sum(mask)
                 if inlier_count >= min_inliers:

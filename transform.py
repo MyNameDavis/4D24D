@@ -260,7 +260,20 @@ def find_quadrilateral_corners(canvas, valid_mask, rough_rect, idx, mapped_featu
     endpoints = np.float32(endpoints)
     hull = cv2.convexHull(endpoints)
     
-    # DEBUG VISUALIZATION: CROP BOUNDARIES
+    corners_out = None
+
+    # Try different epsilons to force 4 points
+    for eps_factor in np.linspace(0.01, 0.2, 50):
+        epsilon = eps_factor * cv2.arcLength(hull, True)
+        approx = cv2.approxPolyDP(hull, epsilon, True)
+        if len(approx) == 4:
+            corners_out = approx.reshape(4, 2)
+            break
+            
+    if corners_out is None:
+        print(" -> Warning: Could not find exactly 4 corners from Hough hull, falling back to minAreaRect of hull.")
+        rect_hull = cv2.minAreaRect(endpoints)
+        corners_out = cv2.boxPoints(rect_hull)
 
     return corners_out
 

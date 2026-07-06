@@ -26,7 +26,7 @@ def main():
         search_path = os.path.join(INPUT_DIR, "*.dng")
         image_paths = sorted([p for p in glob.glob(search_path) if "flat_field" not in p])
 
-    time_threshold = 2.0
+    time_threshold = 6.0
     batches = []
     current_batch = []
     last_time = None
