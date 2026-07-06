@@ -43,6 +43,7 @@ partial segment photos. I've even tested it out with an iPhone. Just don't expec
 ### Above and beyond items for those seeking the chef's kiss:
 * A focusing rail to dial in your camera's alignment and focus with precision.
 * A mirror to use as orientation reference when aligning camera.
+* A true macro lens.
 
 ## **Tips for Taking Good Photos for 4D24D**
 
