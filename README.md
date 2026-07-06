@@ -1,4 +1,4 @@
-### **4D24D Overview**
+# **4D24D Overview**
 
 The purpose of the 4D24D toolset is to allow users to easily get high-res scans of their film
 using a DSLR (Digital Single Lens Reflector) even if it has a low resolution sensor. This is achieved
@@ -35,12 +35,12 @@ you have at a minimum before using 4D24D:
 [A note for stanky little degenerates: you can *technically* use any camera and lens for taking
 partial segment photos. I've even tested it out with an iPhone. Just don't expect immaculate outcomes.]
 
-# Optional but highly recommended for best results:
+### Optional but highly recommended for best results:
 * A tripod/camera stand and mount. Helps you take consistent, level shots. The higher your target resolution,
   the more necessary this becomes.
 * A film holder. Keeps your film flat, and allows you to slide shots across the backlight more easily.
 
-# Above and beyond items for those seeking the chef's kiss:##
+### Above and beyond items for those seeking the chef's kiss:##
 * A focusing rail to dial in your camera's alignment and focus with precision.
 * A mirror to use as orientation reference when aligning camera.
 
