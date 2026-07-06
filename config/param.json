@@ -9,6 +9,8 @@
     "NUDGE_PX": 45.0,
     "CROP_MARGIN": 50,
     "GAUSSIAN_SIGMA": 100.0,
+    "TARGET_ASPECT_RATIO": null,
+    "MAX_HEIGHT": null,
     "INPUT_DIR": "./image_seg_dataset_dng",
     "OUTPUT_DIR": "./output"
 }
