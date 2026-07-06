@@ -62,3 +62,23 @@ a better chance of good results.
 3. Keep your background clean. 4D24D should be able to pick out your image even without a strong
     backlight or film holder, but the more uniform the background is for your scans, the easier
     it will be for the algorithm to piece it all together.
+
+## **Tips for Saving Yourself Some Time**
+
+4D24D has the ability to automatically distinguish distinct film scans and estimate the true aspect
+ratio of your film. However, if you want to save 4D24D some thinking and speed things up, you can 
+give it a hint in the following ways:
+
+1. Take partial film segment photos in order. i.e. don't include a segment from film photo A among
+   segments from film photo B.
+2. In between distinct film photos, cover your lens and take a blank, black photo. 4D24D treats this
+   as an indicator that a new film photo, ignores the shot, and skips the film segment clustering process.
+3. Tell 4D24D what aspect ratio your film is. 4D24D can figure it out on its own, but it just requires
+   that much more number crunching.
+4. An excessive amount of partial segments comes with diminishing returns and exponentially increasing
+   computational load. You're probably not going to see nearly as much improvement between 10 and 20
+   segments as you will between 2 and 4, but you will be spending a lot more time waiting for results.
+   This is something you'll probably want to play around with and find your preferred balance.
+
+## **Curious how 4D24D work?**
+Check out the BACKGROUND.md document for me details on the math behind this process.
