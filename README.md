@@ -23,8 +23,8 @@ can still get quality scans of the film photos they've shot.
 As previously mentioned, 4D24D is purpose built to get you great scans with a cheap DSLR, and no
 macro lens. While highly recommended, you don't even strictly need a stand or tripod to mount your
 DSLR to. If you've got steady enough hands, 4D24D can auto correct for any slight misalignments between
-the film and your camera sensor. With that said, here's what I recommend you have at a minimum before
-using 4D24D:
+the film and your camera sensor (you'll need VERY steady hands). With that said, here's what I recommend
+you have at a minimum before using 4D24D:
 
 * Any DSLR + lens
 * Camera lens reversing ring - this lets you mount your lens to your camera backwards to simulate the
@@ -32,8 +32,9 @@ using 4D24D:
     film from very close up, which is a must to get the benefits of 4D24D.
 * Backlight for film
 
-Optional but very nice to have:
-* A tripod and camera mount. Helps you take consistent, level shots.
+Optional but highly recommended for best results:
+* A tripod and camera mount. Helps you take consistent, level shots. The higher your target resolution,
+  the more necessary this becomes.
 * A film holder. Keeps your film flat, and allows you to slide shots across the backlight more easily.
 
 **Tips for Taking Good Photos for 4D24d**
