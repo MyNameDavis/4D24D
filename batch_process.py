@@ -52,9 +52,6 @@ def stitch_mosaic(comp, features_dict, connections, output_dir, idx, flat_field_
     equations = []
     if cropped_canvas is not None and cropped_canvas.size > 0:
         full_crop_path = os.path.join(output_dir, f"mosaic_{idx:02d}.tif")
-        uncorrected_path = os.path.join(output_dir, f"mosaic_{idx:02d}_uncorrected.tif")
-        # Save uncorrected first (will be overwritten if we did local correction, but we defer it now)
-        cv2.imwrite(uncorrected_path, cropped_canvas)
         cv2.imwrite(full_crop_path, cropped_canvas)
         print(f" -> High-resolution lossless crop saved to {full_crop_path}")
         
