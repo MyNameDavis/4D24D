@@ -80,5 +80,5 @@ give it a hint in the following ways:
    segments as you will between 2 and 4, but you will be spending a lot more time waiting for results.
    This is something you'll probably want to play around with and find your preferred balance.
 
-## **Curious how 4D24D work?**
+## **Curious how 4D24D works?**
 Check out the BACKGROUND.md document for me details on the math behind this process.
