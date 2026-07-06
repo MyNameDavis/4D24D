@@ -18,6 +18,8 @@ are incredibly pricy. Not to mention the cost of a nice, high resolution DSLR an
 4D24D so that even photographers without an expensive DLSR, macro lens, scanner or whatever else
 can still get quality scans of the film photos they've shot.
 
+https://github.com/user-attachments/assets/8c663303-6ff0-40ae-a012-e07a01e424a2
+
 ## **Minimal Hardware Requirements to Get Good Results with 4D24D**
 
 As previously mentioned, 4D24D is purpose built to get you great scans with a cheap DSLR, and no
