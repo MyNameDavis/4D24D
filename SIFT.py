@@ -20,11 +20,8 @@ def load_clean_image(path, flat_field_img=None):
         
     return img
 
-def extract_sift_features(image_paths, flat_field_img=None, downscale_factor=1.0, max_features=None):
-    if max_features is not None:
-        sift = cv2.SIFT_create(nfeatures=max_features)
-    else:
-        sift = cv2.SIFT_create()
+def extract_sift_features(image_paths, flat_field_img=None, downscale_factor=1.0, max_features=0):
+    sift = cv2.SIFT_create(nfeatures=max_features) # when nfeatures = 0, no limit is applied
     features = {}
     total_success_pct = 0.0
 
@@ -53,10 +50,11 @@ def extract_sift_features(image_paths, flat_field_img=None, downscale_factor=1.0
             'keypoints': keypoints,
             'descriptors': descriptors
         }
+
+        target_features = max_features or 1000
         
-        target_features = (img_bgr.shape[0] * img_bgr.shape[1]) / 2000.0
         num_features = len(keypoints)
-        success_pct = min(100.0, (num_features / target_features) * 100.0) if target_features > 0 else 0.0
+        success_pct = min(100.0, (num_features / target_features) * 100.0)
         total_success_pct += success_pct
         
     if features:
