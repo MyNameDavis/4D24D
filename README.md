@@ -30,9 +30,10 @@ you have at a minimum before using 4D24D:
 * Camera lens reversing ring - this lets you mount your lens to your camera backwards to simulate the
     effects of a macro lens. It won't be quite as good, but it'll let you take in-focus shots of your
     film from very close up, which is a must to get the benefits of 4D24D.
-      * A note for stanky little degenerates: you can **technically** use any camera and lens for taking
-        partial segment photos. I've even tested it out with an iPhone. Just don't expect immaculate outcomes.
 * Backlight for film
+
+[A note for stanky little degenerates: you can **technically** use any camera and lens for taking
+partial segment photos. I've even tested it out with an iPhone. Just don't expect immaculate outcomes.]
 
 Optional but highly recommended for best results:
 * A tripod/camera stand and mount. Helps you take consistent, level shots. The higher your target resolution,
