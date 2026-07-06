@@ -40,7 +40,7 @@ partial segment photos. I've even tested it out with an iPhone. Just don't expec
   the more necessary this becomes.
 * A film holder. Keeps your film flat, and allows you to slide shots across the backlight more easily.
 
-### Above and beyond items for those seeking the chef's kiss:##
+### Above and beyond items for those seeking the chef's kiss:
 * A focusing rail to dial in your camera's alignment and focus with precision.
 * A mirror to use as orientation reference when aligning camera.
 
