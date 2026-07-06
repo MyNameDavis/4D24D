@@ -3,3 +3,8 @@ output/
 image_seg_dataset/
 .agyignore
 .venv/
+image_seg_dataset_3d/
+image_seg_dataset_dng/
+sample_dng/
+seamless_film_grain_mask.tif
+seamless_grain_masks/
