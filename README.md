@@ -1,4 +1,4 @@
-###**4D24D Overview**
+### **4D24D Overview**
 
 The purpose of the 4D24D toolset is to allow users to easily get high-res scans of their film
 using a DSLR (Digital Single Lens Reflector) even if it has a low resolution sensor. This is achieved
@@ -18,7 +18,7 @@ are incredibly pricy. Not to mention the cost of a nice, high resolution DSLR an
 4D24D so that even photographers without an expensive DLSR, macro lens, scanner or whatever else
 can still get quality scans of the film photos they've shot.
 
-##**Minimal Hardware Requirements to Get Good Results with 4D24D**
+## **Minimal Hardware Requirements to Get Good Results with 4D24D**
 
 As previously mentioned, 4D24D is purpose built to get you great scans with a cheap DSLR, and no
 macro lens. While highly recommended, you don't even strictly need a stand or tripod to mount your
@@ -35,16 +35,16 @@ you have at a minimum before using 4D24D:
 [A note for stanky little degenerates: you can *technically* use any camera and lens for taking
 partial segment photos. I've even tested it out with an iPhone. Just don't expect immaculate outcomes.]
 
-#Optional but highly recommended for best results:
+# Optional but highly recommended for best results:
 * A tripod/camera stand and mount. Helps you take consistent, level shots. The higher your target resolution,
   the more necessary this becomes.
 * A film holder. Keeps your film flat, and allows you to slide shots across the backlight more easily.
 
-#Above and beyond items for those seeking the chef's kiss:##
+# Above and beyond items for those seeking the chef's kiss:##
 * A focusing rail to dial in your camera's alignment and focus with precision.
 * A mirror to use as orientation reference when aligning camera.
 
-##**Tips for Taking Good Photos for 4D24D**
+## **Tips for Taking Good Photos for 4D24D**
 
 I built 4D24D to be as easy as possible on the user, so you shouldn't have to worry too much about
 getting perfect shots for your film scan. However, there are some things you can do to give yourself
