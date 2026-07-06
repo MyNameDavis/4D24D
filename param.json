@@ -1,0 +1,14 @@
+{
+    "DOWNSCALE_FACTOR": 0.5,
+    "MAX_FEATURES": 1000,
+    "MIN_INLIERS": 15,
+    "WINDOW_SIZE": 5,
+    "SHANNON_THRESHOLD": 5.25,
+    "CANNY_RING_PERCENT": 0.2,
+    "EXCLUSION_THICKNESS": 300,
+    "NUDGE_PX": 45.0,
+    "CROP_MARGIN": 50,
+    "GAUSSIAN_SIGMA": 100.0,
+    "INPUT_DIR": "./image_seg_dataset_dng",
+    "OUTPUT_DIR": "./output"
+}
