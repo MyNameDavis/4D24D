@@ -116,7 +116,7 @@ def main():
     target_R = PARAMS.get("TARGET_ASPECT_RATIO")
     if target_R is not None:
         print("="*50)
-        print(f"USING MANUAL TARGET ASPECT RATIO: {target_R:.4f}")
+        print(f"USER DEFINED ASPECT RATIO: {target_R:.4f}")
         R = target_R
     elif avg_R is not None:
         print("="*50)
@@ -135,20 +135,19 @@ def main():
                     closest_ratio = ratio
                     closest_name = name
                     
-            print(f"SNAPPED UNIVERSAL ASPECT RATIO: {closest_ratio:.4f} ({closest_name})")
             print("="*50)
+            print(f"Found closest standard aspect ratio: {closest_ratio:.4f} ({closest_name})")
             R = closest_ratio
         except:
             print("Warning: Could not snap to standard ratios. Using raw calculated.")
             R = avg_R
     else:
         R = None
-        print(" -> Error: No aspect ratio equations were generated and no manual override set!")
+        print(" -> Error: No aspect ratio equations were generated and no user defined acpect ratio set!")
 
     if R is not None:
-        print(f"\nUNIVERSAL TRUE ASPECT RATIO: {R:.4f}")
         print("="*50)
-        print("\nApplying aspect ratio correction to all mosaics...")
+        print(f"\nSNAPPING ALL MOSAICS TO ASPECT RATIO: {R:.4f}...")
         
         max_h = PARAMS.get("MAX_OUTPUT_HEIGHT")
         
