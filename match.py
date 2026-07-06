@@ -127,7 +127,7 @@ def cluster_film_scenes(features_dict, min_inliers, window_size=5):
         final_graph[conn['img1']].append(conn['img2'])
         final_graph[conn['img2']].append(conn['img1'])
         
-    final_components = []
+    final_mosaics = []
     visited = set()
     for img in filenames:
         if img not in visited:
@@ -141,10 +141,10 @@ def cluster_film_scenes(features_dict, min_inliers, window_size=5):
                     for neighbor in final_graph[curr]:
                         if neighbor not in visited:
                             q.append(neighbor)
-            final_components.append(list(comp))
+            final_mosaics.append(list(comp))
 
-    print(f" -> Matching complete! Consolidated into {len(final_components)} distinct mosaics.")
-    return final_components, all_connections
+    print(f" -> Matching complete! Consolidated into {len(final_mosaics)} distinct mosaics.")
+    return final_mosaics, all_connections
 
 def compute_exposure_gains(connections, features_dict, global_transforms, anchor, flat_field_img):
     print("\nCalculating Global Transformations and Exposure Compensation...")
