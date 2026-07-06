@@ -5,7 +5,6 @@ import numpy as np
 import multiprocessing
 import json
 
-import json
 with open("param.json") as _f:
     PARAMS = json.load(_f)
 from batch_process import process_single_batch
@@ -71,80 +70,84 @@ def main():
                              OUTPUT_DIR, shared_tracker)
                              
     print("\n" + "="*80)
-    print("Calculating Global Consensus Aspect Ratio...")
     
-    eq_dir = os.path.join(OUTPUT_DIR, "equations")
-    eq_files = sorted(glob.glob(os.path.join(eq_dir, "equations_*.json")))
+    R = PARAMS.get("TARGET_ASPECT_RATIO")
     
-    global_R = []
-    all_equations = []
-    for eq_file in eq_files:
-        try:
-            with open(eq_file, "r") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    all_equations.extend(data)
-                elif isinstance(data, dict) and "R" in data:
-                    global_R.append(data["R"])
-        except Exception as e:
-            pass
-            
-    avg_R = None
-    if all_equations:
-        segment_keys = list(set(eq['segment_key'] for eq in all_equations))
-        segment_index_map = {k: i+1 for i, k in enumerate(segment_keys)}
-        
-        def error_func(params, eq_list):
-            R2 = params[0]
-            errors = []
-            for eq in eq_list:
-                beta = params[segment_index_map[eq['segment_key']]]
-                pred = eq['coeff_R2'] * R2 + eq['coeff_beta'] * beta
-                errors.append(pred - eq['rhs'])
-            return np.array(errors)
-            
-        initial_guess = np.ones(1 + len(segment_keys))
-        initial_guess[0] = 1.96  # (1.4)^2
-        
-        from scipy.optimize import least_squares
-        res = least_squares(error_func, initial_guess, args=(all_equations,))
-        avg_R = np.sqrt(res.x[0])
-        
-    elif global_R:
-        avg_R = np.mean(global_R)
-        
-    target_R = PARAMS.get("TARGET_ASPECT_RATIO")
-    if target_R is not None:
-        print("="*50)
-        print(f"USER DEFINED ASPECT RATIO: {target_R:.4f}")
-        R = target_R
-    elif avg_R is not None:
-        print("="*50)
-        print(f"RAW CALCULATED ASPECT RATIO: {avg_R:.4f}")
-        
-        try:
-            with open("film_aspect_ratios.json", "r") as f:
-                aspect_ratios = json.load(f)
-                
-            closest_name = None
-            closest_ratio = None
-            min_diff = float('inf')
-            for name, ratio in aspect_ratios.items():
-                if abs(avg_R - ratio) < min_diff:
-                    min_diff = abs(avg_R - ratio)
-                    closest_ratio = ratio
-                    closest_name = name
-                    
-            print("="*50)
-            print(f"Found closest standard aspect ratio: {closest_ratio:.4f} ({closest_name})")
-            R = closest_ratio
-        except:
-            print("Warning: Could not snap to standard ratios. Using raw calculated.")
-            R = avg_R
+    if R is not None:
+        print(f"USER DEFINED ASPECT RATIO FOUND: {R:.4f}")
+        print("Skipping aspect ratio estimation.")
     else:
-        R = None
-        print(" -> Error: No aspect ratio equations were generated and no user defined acpect ratio set!")
+        print("Calculating Global Consensus Aspect Ratio...")
+        
+        eq_dir = os.path.join(OUTPUT_DIR, "equations")
+        eq_files = sorted(glob.glob(os.path.join(eq_dir, "equations_*.json")))
+        
+        global_R = []
+        all_equations = []
+        for eq_file in eq_files:
+            try:
+                with open(eq_file, "r") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        all_equations.extend(data)
+                    elif isinstance(data, dict) and "R" in data:
+                        global_R.append(data["R"])
+            except Exception as e:
+                pass
+                
+        avg_R = None
+        if all_equations:
+            segment_keys = list(set(eq['segment_key'] for eq in all_equations))
+            segment_index_map = {k: i+1 for i, k in enumerate(segment_keys)}
+            
+            def error_func(params, eq_list):
+                R2 = params[0]
+                errors = []
+                for eq in eq_list:
+                    beta = params[segment_index_map[eq['segment_key']]]
+                    pred = eq['coeff_R2'] * R2 + eq['coeff_beta'] * beta
+                    errors.append(pred - eq['rhs'])
+                return np.array(errors)
+                
+            initial_guess = np.ones(1 + len(segment_keys))
+            initial_guess[0] = 1.96  # (1.4)^2
+            
+            from scipy.optimize import least_squares
+            res = least_squares(error_func, initial_guess, args=(all_equations,))
+            avg_R = np.sqrt(res.x[0])
+            
+        elif global_R:
+            avg_R = np.mean(global_R)
+            
+        if avg_R is not None:
+            print("="*50)
+            print(f"RAW CALCULATED ASPECT RATIO: {avg_R:.4f}")
+            
+            try:
+                with open("film_aspect_ratios.json", "r") as f:
+                    aspect_ratios = json.load(f)
+                    
+                closest_name = None
+                closest_ratio = None
+                min_diff = float('inf')
+                for name, ratio in aspect_ratios.items():
+                    if abs(avg_R - ratio) < min_diff:
+                        min_diff = abs(avg_R - ratio)
+                        closest_ratio = ratio
+                        closest_name = name
+                        
+                print("="*50)
+                print(f"Found closest standard aspect ratio: {closest_ratio:.4f} ({closest_name})")
+                R = closest_ratio
+            except:
+                print("Warning: Could not snap to standard ratios. Using raw calculated.")
+                R = avg_R
+        else:
+            print(" -> Error: No aspect ratio equations were generated and no user defined aspect ratio set!")
 
+    # ---------------------------------------------------------
+    # Final Resizing Loop
+    # ---------------------------------------------------------
     if R is not None:
         print("="*50)
         print(f"\nSNAPPING ALL MOSAICS TO ASPECT RATIO: {R:.4f}...")
@@ -167,8 +170,6 @@ def main():
                 corrected_img = cv2.resize(img, (corrected_w, final_h), interpolation=interp)
                 cv2.imwrite(os.path.join(OUTPUT_DIR, f"mosaic_{idx:02d}.tif"), corrected_img)
                 print(f" -> Saved corrected mosaic {idx:02d} (Raw: {w_c}x{h_c}, Corrected: {corrected_w}x{final_h})")
-    else:
-        print(" -> Error: No aspect ratio equations were generated!")
 
 if __name__ == '__main__':
     multiprocessing.set_start_method('spawn')
