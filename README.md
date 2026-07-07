@@ -1,6 +1,6 @@
 # **4D24D Overview**
 
-*Davey's DIY DSLR Diapositive to Digital Data Density Doubler (aka 4-D to 4-D (aka 4D24D (pronounced Forty-Two Forty)))
+**Davey's DIY DSLR Diapositive to Digital Data Density Doubler (aka 4-D to 4-D (aka 4D24D (pronounced Forty-Two Forty)))**
 
 The purpose of the 4D24D toolset is to allow users to easily get high-res scans of their film negatives 
 using a DSLR (Digital Single Lens Reflector) even if it has a low resolution sensor. This is achieved
