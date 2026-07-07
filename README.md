@@ -6,7 +6,7 @@ The purpose of the 4D24D toolset is to allow users to easily get high-res scans 
 using a DSLR (Digital Single Lens Reflector) even if it has a low resolution sensor. This is achieved
 by taking multiple photographs of overlapping, partial segments of the negative, and then combining them into one
 "super-resolution" mosaic image. 4D24D makes this easier by automatically detecting groups of images
-which belong to the same film photo, correcting for slight camera misalignments, and lighting inconistencies,
+which belong to the same film photo, correcting for slight camera misalignments and lighting inconistencies,
 and stiching the image together into a perfectly aligned and cropped output without any user input.
 You can take as many photos as you want, of film of any aspect ratio, and put them in any order,
 and 4D24D will figure the rest out for you!
